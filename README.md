@@ -36,6 +36,8 @@ MIT-SPARK team. Please cite their work when using this fork:
 These additions are tested only with the revisions cloned by the Mono-Hydra
 workspace setup script.
 
+The current branch corresponds to the base version of Kimera-VIO used in the Mono-Hydra pipeline. SuperPoint support is included (used in the RealSense_RGBD_sp and ZEDXMono_RGBD parameter sets) and will be documented in the upcoming Mono-Hydra journal article. Updates aligned with that publication will be tagged once the paper is available.
+
 When using this fork in publications, please cite both the Kimera papers above and the Mono-Hydra paper:
 
 ```bibtex
