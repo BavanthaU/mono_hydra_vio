@@ -93,3 +93,11 @@ useDogLeg: 0
 #   EXTERNAL_ODOM = 4
 pose_guess_source: 0
 mono_translation_scale_factor: 0.1
+
+
+# depth factors parameters (not wired into the graph yet; keep false)
+use_sparse_depth_factors: false
+sparse_depth_max_factors_per_kf: 30
+sparse_depth_sigma_a: 0.05
+sparse_depth_sigma_b: 0.02
+sparse_depth_huber_k: 1.5

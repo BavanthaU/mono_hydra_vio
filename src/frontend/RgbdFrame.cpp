@@ -46,9 +46,10 @@ StereoFrame::Ptr RgbdFrame::getStereoFrame() const {
 }
 
 void RgbdFrame::fillStereoFrame(const RgbdCamera& camera,
-                                StereoFrame& stereo_frame) const {
+                                StereoFrame& stereo_frame,
+                                bool use_depth) const {
   const auto& params = camera.getCamParams();
-  if (!params.depth.is_registered_) {
+  if (use_depth && !params.depth.is_registered_) {
     depth_img_.registerDepth(params);
   }
 
@@ -78,6 +79,13 @@ void RgbdFrame::fillStereoFrame(const RgbdCamera& camera,
     const auto& status_keypoint_pair = left_keypoints_rect[i];
     if (status_keypoint_pair.first != KeypointStatus::VALID) {
       right_keypoints_rect.push_back({status_keypoint_pair.first, null_point});
+      keypoint_depths.push_back(0.0);
+      stereo_frame.keypoints_3d_.push_back(Vector3::Zero());
+      continue;
+    }
+
+    if (!use_depth) {
+      right_keypoints_rect.push_back({KeypointStatus::NO_DEPTH, null_point});
       keypoint_depths.push_back(0.0);
       stereo_frame.keypoints_3d_.push_back(Vector3::Zero());
       continue;

@@ -12,7 +12,7 @@ T_BS:
           0.00000000,  0.00000000,  0.00000000,  1.00000000]
 
 # Camera specific definitions
-rate_hz: 20
+rate_hz: 30
 resolution: [640, 480]  # [width, height]
 camera_model: pinhole
 intrinsics: [377.535257164, 377.209841379, 328.193371286, 240.426878936]  # [fu, fv, cu, cv]

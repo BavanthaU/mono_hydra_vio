@@ -32,6 +32,9 @@ fast_thresh: 10
 vision_sensor_type: 1  # RGBD
 min_depth_factor: 0.1
 map_depth_factor: 1.0
+#new parameters for depth image usage
+use_depth_stride: 1
+depth_stride: 5
 
 equalizeImage: 1
 nominalBaseline: 0.05

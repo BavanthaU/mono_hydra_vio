@@ -73,6 +73,13 @@ struct FrontendParams : public PipelineParams {
   bool log_mono_tracking_images_ = false;
   //! Display/Save stereo tracking rectified and unrectified images.
   bool log_stereo_matching_images_ = false;
+
+  //! Optional stride to only consume depth every N frames (RGBD).
+  bool use_depth_stride_ = false;
+  size_t depth_stride_ = 5u;
+  //! Optionally skip depth when gyro magnitude is high (fast rotations).
+  bool use_depth_gyro_gate_ = false;
+  double depth_gyro_threshold_radps_ = 1.5;
 };
 
 }  // namespace VIO

@@ -73,6 +73,27 @@ bool RegularVioBackendParams::parseYAMLRegularVioBackendParams(
   yaml_parser.getYamlParam("regularityNoiseSigma", &regularityNoiseSigma_);
   yaml_parser.getYamlParam("regularityNormParam", &regularityNormParam_);
   yaml_parser.getYamlParam("regularityNormType", &regularityNormType_);
+  if (yaml_parser.hasParam("use_sparse_depth_factors")) {
+    yaml_parser.getYamlParam("use_sparse_depth_factors",
+                             &use_sparse_depth_factors_);
+  }
+  if (yaml_parser.hasParam("sparse_depth_max_factors_per_kf")) {
+    int max_factors = 0;
+    yaml_parser.getYamlParam("sparse_depth_max_factors_per_kf", &max_factors);
+    if (max_factors > 0) {
+      sparse_depth_max_factors_per_kf_ =
+          static_cast<size_t>(max_factors);
+    }
+  }
+  if (yaml_parser.hasParam("sparse_depth_sigma_a")) {
+    yaml_parser.getYamlParam("sparse_depth_sigma_a", &sparse_depth_sigma_a_);
+  }
+  if (yaml_parser.hasParam("sparse_depth_sigma_b")) {
+    yaml_parser.getYamlParam("sparse_depth_sigma_b", &sparse_depth_sigma_b_);
+  }
+  if (yaml_parser.hasParam("sparse_depth_huber_k")) {
+    yaml_parser.getYamlParam("sparse_depth_huber_k", &sparse_depth_huber_k_);
+  }
   int backend_modality = 0;
   yaml_parser.getYamlParam("backend_modality", &backend_modality);
   backend_modality_ = static_cast<RegularBackendModality>(backend_modality);
@@ -92,7 +113,13 @@ bool RegularVioBackendParams::equalsRegularVioBackendParams(
          (fabs(stereoNormParam_ - rvp2.stereoNormParam_) <= tol) &&
          (fabs(regularityNormParam_ - rvp2.regularityNormParam_) <= tol) &&
          (regularityNormType_ == rvp2.regularityNormType_) &&
-         (backend_modality_ == rvp2.backend_modality_);
+         (backend_modality_ == rvp2.backend_modality_) &&
+         (use_sparse_depth_factors_ == rvp2.use_sparse_depth_factors_) &&
+         (sparse_depth_max_factors_per_kf_ ==
+          rvp2.sparse_depth_max_factors_per_kf_) &&
+         (fabs(sparse_depth_sigma_a_ - rvp2.sparse_depth_sigma_a_) <= tol) &&
+         (fabs(sparse_depth_sigma_b_ - rvp2.sparse_depth_sigma_b_) <= tol) &&
+         (fabs(sparse_depth_huber_k_ - rvp2.sparse_depth_huber_k_) <= tol);
 }
 
 }  // namespace VIO

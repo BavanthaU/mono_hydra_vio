@@ -178,6 +178,8 @@ target_compile_features(${PROJECT_NAME} PUBLIC
 # Add an alias so that library can be used inside the build tree,
 # e.g. when testing
 add_library(kimera_vio::kimera_vio ALIAS kimera_vio)
+add_library(mono_hydra_vio ALIAS kimera_vio)
+add_library(mono_hydra_vio::mono_hydra_vio ALIAS kimera_vio)
 
 add_executable(stereoVIOEuroc ./examples/KimeraVIO.cpp)
 # target_link_libraries(stereoVIOEuroc PUBLIC kimera_vio::kimera_vio)
@@ -301,14 +303,24 @@ endif(KIMERA_BUILD_TESTS)
 ## in the export kimera_vio-export.
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/mono_hydra_vioConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY AnyNewerVersion
+)
+write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/kimera_vioConfigVersion.cmake
   VERSION ${PROJECT_VERSION}
   COMPATIBILITY AnyNewerVersion
 )
 
-# Create kimera_vioConfig.cmake with extra info from kimera_vioConfig.cmake.in
-# This file is necessary to find_package the library kimera_vio.
-set(INSTALL_CONFIGDIR lib/cmake/kimera_vio)
+# Create config files (both mono_hydra_vio and legacy kimera_vio names) that
+# load the same exported targets.
+set(INSTALL_CONFIGDIR lib/cmake/mono_hydra_vio)
+configure_package_config_file(
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/kimera_vioConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/mono_hydra_vioConfig.cmake
+  INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+)
 configure_package_config_file(
   ${CMAKE_CURRENT_LIST_DIR}/cmake/kimera_vioConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/kimera_vioConfig.cmake
@@ -345,6 +357,8 @@ else(EXPORT_KIMERA)
 
   ## Install the config and configversion
   install(FILES
+      ${CMAKE_CURRENT_BINARY_DIR}/mono_hydra_vioConfig.cmake
+      ${CMAKE_CURRENT_BINARY_DIR}/mono_hydra_vioConfigVersion.cmake
       ${CMAKE_CURRENT_BINARY_DIR}/kimera_vioConfig.cmake
       ${CMAKE_CURRENT_BINARY_DIR}/kimera_vioConfigVersion.cmake
       ${CMAKE_CURRENT_LIST_DIR}/cmake/FindGflags.cmake

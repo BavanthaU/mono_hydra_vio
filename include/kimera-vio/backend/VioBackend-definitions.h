@@ -28,6 +28,7 @@
 #include "kimera-vio/frontend/Tracker-definitions.h"
 #include "kimera-vio/imu-frontend/ImuFrontend-definitions.h"
 #include "kimera-vio/imu-frontend/ImuFrontend.h"
+#include "kimera-vio/backend/DepthMeasurements.h"
 #include "kimera-vio/pipeline/PipelinePayload.h"
 #include "kimera-vio/utils/Macros.h"
 #include "kimera-vio/utils/UtilsOpenCV.h"
@@ -236,6 +237,7 @@ struct BackendInput : public PipelinePayload {
       const ImuFrontend::PimPtr& pim,
       //! Raw imu msgs for Backend init only
       const ImuAccGyrS& imu_acc_gyrs,
+      const SparseDepthMeasurements& sparse_depth_meas = SparseDepthMeasurements(),
       std::optional<gtsam::Pose3> body_lkf_OdomPose_body_kf = std::nullopt,
       std::optional<gtsam::Velocity3> body_kf_world_OdomVel_body_kf =
           std::nullopt)
@@ -243,6 +245,7 @@ struct BackendInput : public PipelinePayload {
         status_stereo_measurements_kf_(status_stereo_measurements_kf),
         pim_(pim),
         imu_acc_gyrs_(imu_acc_gyrs),
+        sparse_depth_meas_(sparse_depth_meas),
         body_lkf_OdomPose_body_kf_(body_lkf_OdomPose_body_kf),
         body_kf_world_OdomVel_body_kf_(body_kf_world_OdomVel_body_kf) {}
 
@@ -250,6 +253,7 @@ struct BackendInput : public PipelinePayload {
   const StatusStereoMeasurementsPtr status_stereo_measurements_kf_;
   ImuFrontend::PimPtr pim_;
   ImuAccGyrS imu_acc_gyrs_;
+  SparseDepthMeasurements sparse_depth_meas_;
   // between pose from last keyframe to current according to external odometry
   std::optional<gtsam::Pose3> body_lkf_OdomPose_body_kf_;
   // velocity of the current keyframe body w.r.t. the world frame in the body

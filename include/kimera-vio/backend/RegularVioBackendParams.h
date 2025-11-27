@@ -77,6 +77,13 @@ class RegularVioBackendParams : public BackendParams {
 
   double huberParam_ = 1.345;
   double tukeyParam_ = 4.6851;
+
+  // Sparse depth factor controls (optional, default off).
+  bool use_sparse_depth_factors_ = false;
+  size_t sparse_depth_max_factors_per_kf_ = 30u;
+  double sparse_depth_sigma_a_ = 0.05;
+  double sparse_depth_sigma_b_ = 0.02;
+  double sparse_depth_huber_k_ = 1.5;
 };
 
 }  // namespace VIO

@@ -17,6 +17,7 @@
 #include "kimera-vio/frontend/FrontendOutputPacketBase.h"
 #include "kimera-vio/frontend/RgbdFrame.h"
 #include "kimera-vio/frontend/VisionImuFrontend-definitions.h"
+#include "kimera-vio/backend/DepthMeasurements.h"
 
 #include <optional>
 
@@ -37,6 +38,7 @@ struct RgbdFrontendOutput : public FrontendOutputPacketBase {
       const ImuAccGyrS& imu_acc_gyrs,
       const cv::Mat& feature_tracks,
       const DebugTrackerInfo& debug_tracker_info,
+      const SparseDepthMeasurements& sparse_depth_meas,
       std::optional<gtsam::Pose3> lkf_body_Pose_kf_body = std::nullopt,
       std::optional<gtsam::Velocity3> body_world_Vel_body = std::nullopt)
       : FrontendOutputPacketBase(frame_lkf.timestamp_,
@@ -51,7 +53,8 @@ struct RgbdFrontendOutput : public FrontendOutputPacketBase {
         b_Pose_cam_rect_(b_Pose_cam_rect),
         frame_lkf_(frame_lkf),
         rgbd_frame_lkf_(rgbd_frame_lkf),
-        feature_tracks_(feature_tracks) {}
+        feature_tracks_(feature_tracks),
+        sparse_depth_meas_(sparse_depth_meas) {}
 
   virtual ~RgbdFrontendOutput() = default;
 
@@ -79,6 +82,7 @@ struct RgbdFrontendOutput : public FrontendOutputPacketBase {
   const StereoFrame frame_lkf_;
   const RgbdFrame rgbd_frame_lkf_;
   const cv::Mat feature_tracks_;
+  const SparseDepthMeasurements sparse_depth_meas_;
 };
 
 }  // namespace VIO

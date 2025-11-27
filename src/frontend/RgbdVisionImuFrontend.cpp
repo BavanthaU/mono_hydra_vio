@@ -14,12 +14,14 @@
 
 #include "kimera-vio/frontend/RgbdVisionImuFrontend.h"
 
+#include <algorithm>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <gtsam/geometry/Rot3.h>
 
 #include "kimera-vio/utils/Timer.h"
 #include "kimera-vio/utils/UtilsNumerical.h"
+#include "kimera-vio/backend/DepthMeasurements.h"
 
 DEFINE_bool(log_rgbd_tracking_images,
             false,
@@ -44,10 +46,14 @@ RgbdVisionImuFrontend::RgbdVisionImuFrontend(
     : VisionImuFrontend(frontend_params,
                         imu_params,
                         imu_initial_bias,
-                        display_queue,
-                        log_output,
-                        odom_params),
-      camera_(camera) {
+      display_queue,
+      log_output,
+      odom_params),
+      camera_(camera),
+      use_depth_stride_(frontend_params.use_depth_stride_),
+      depth_stride_(std::max<size_t>(1u, frontend_params.depth_stride_)),
+      use_depth_gyro_gate_(frontend_params.use_depth_gyro_gate_),
+      depth_gyro_threshold_radps_(frontend_params.depth_gyro_threshold_radps_) {
   CHECK(camera_);
 
   feature_detector_ = std::make_unique<FeatureDetector>(
@@ -86,6 +92,7 @@ RgbdOutputPtr RgbdVisionImuFrontend::bootstrapSpin(RgbdInputPtr&& base_input) {
   }
 
   CHECK(frame_lkf_);
+  SparseDepthMeasurements sparse_depth_meas;
   return std::make_unique<RgbdFrontendOutput>(frame_lkf_->isKeyframe(),
                                               nullptr,
                                               camera_->getBodyPoseCam(),
@@ -94,7 +101,8 @@ RgbdOutputPtr RgbdVisionImuFrontend::bootstrapSpin(RgbdInputPtr&& base_input) {
                                               nullptr,
                                               input->imu_accgyrs_,
                                               cv::Mat(),
-                                              getTrackerInfo());
+                                              getTrackerInfo(),
+                                              sparse_depth_meas);
 }
 
 RgbdOutputPtr RgbdVisionImuFrontend::nominalSpin(RgbdInputPtr&& base_input) {
@@ -141,7 +149,10 @@ RgbdOutputPtr RgbdVisionImuFrontend::nominalSpin(RgbdInputPtr&& base_input) {
   VLOG(10) << "Starting processStereoFrame...";
   cv::Mat feature_tracks;
   StatusStereoMeasurementsPtr stereo_measurements =
-      processFrame(frame_k, camLrectLkf_R_camLrectK_imu, &feature_tracks);
+      processFrame(frame_k,
+                   camLrectLkf_R_camLrectK_imu,
+                   input->imu_accgyrs_,
+                   &feature_tracks);
   VLOG(10) << "Finished processStereoFrame.";
 
   if (VLOG_IS_ON(5)) {
@@ -165,6 +176,8 @@ RgbdOutputPtr RgbdVisionImuFrontend::nominalSpin(RgbdInputPtr&& base_input) {
   }
 
   const bool is_keyframe = frame_km1_->isKeyframe();
+  // Sparse depth factors are not active yet; keep empty.
+  SparseDepthMeasurements sparse_depth_meas;
   return std::make_unique<RgbdFrontendOutput>(
       is_keyframe && frontend_state_ == FrontendState::Nominal,
       stereo_measurements,
@@ -175,6 +188,7 @@ RgbdOutputPtr RgbdVisionImuFrontend::nominalSpin(RgbdInputPtr&& base_input) {
       input->imu_accgyrs_,
       feature_tracks,
       getTrackerInfo(),
+      sparse_depth_meas,
       is_keyframe ? getExternalOdometryRelativeBodyPose(input.get())
                   : std::nullopt,
       is_keyframe ? getExternalOdometryWorldVelocity(input.get())
@@ -207,7 +221,14 @@ void RgbdVisionImuFrontend::processFirstFrame(const RgbdFrame& rgbd_frame) {
                               &frame_km1_->left_keypoints_rectified_);
 
   // make features in fake stereo frame corresponding to depth in rgbd
-  rgbd_frame.fillStereoFrame(*camera_, *frame_km1_);
+  // No IMU samples yet here; only stride gate applies on the very first frame.
+  const bool depth_active = useDepthThisFrame(rgbd_frame.id_);
+  if (VLOG_IS_ON(1)) {
+    VLOG(1) << "RGBD first frame depth usage: "
+            << (depth_active ? "enabled" : "skipped (stride/gyro)");
+  }
+  rgbd_frame.fillStereoFrame(*camera_, *frame_km1_, depth_active);
+  // No depth reuse on first frame
 
   ++frame_count_;
 
@@ -236,6 +257,7 @@ void RgbdVisionImuFrontend::checkAndLogKeyframe() {
 StatusStereoMeasurementsPtr RgbdVisionImuFrontend::processFrame(
     const RgbdFrame& rgbd_frame,
     const gtsam::Rot3& keyframe_R_cur_frame,
+    const ImuAccGyrS& imu_accgyrs,
     cv::Mat* feature_tracks) {
   CHECK(tracker_);
 
@@ -273,6 +295,12 @@ StatusStereoMeasurementsPtr RgbdVisionImuFrontend::processFrame(
 
   StereoMeasurements stereo_measurements;
 
+  // Choose whether to use depth on this frame (stride + optional gyro gate).
+  bool depth_active = useDepthThisFrame(rgbd_frame.id_);
+  if (depth_active) {
+    depth_active = gyroAllowsDepth(imu_accgyrs);
+  }
+
   if (shouldBeKeyframe(stereo_frame->left_frame_, frame_lkf_->left_frame_)) {
     handleKeyframe(rgbd_frame, *stereo_frame, keyframe_R_cur_frame);
     stereo_frame->setIsKeyframe(true);
@@ -301,6 +329,8 @@ void RgbdVisionImuFrontend::handleKeyframe(
     const RgbdFrame& rgbd_frame,
     StereoFrame& frame,
     const gtsam::Rot3& keyframe_R_frame) {
+  const bool depth_active = useDepthThisFrame(rgbd_frame.id_);
+
   if (frontend_params_.useRANSAC_) {
     // MONO geometric outlier rejection
     TrackingStatusPose status_mono;
@@ -309,10 +339,15 @@ void RgbdVisionImuFrontend::handleKeyframe(
                          &frame.left_frame_,
                          &status_mono);
 
-    rgbd_frame.fillStereoFrame(*camera_, frame);
+    if (VLOG_IS_ON(1) && use_depth_stride_) {
+      VLOG(1) << "RGBD keyframe " << rgbd_frame.id_
+              << (depth_active ? " using depth." : " skipping depth (stride).");
+    }
+
+    rgbd_frame.fillStereoFrame(*camera_, frame, depth_active);
 
     TrackingStatusPose status_stereo;
-    if (frontend_params_.use_stereo_tracking_) {
+    if (frontend_params_.use_stereo_tracking_ && depth_active) {
       outlierRejectionStereo(
           camera_->getFakeStereoCamera(),
           keyframe_R_frame,
@@ -321,8 +356,10 @@ void RgbdVisionImuFrontend::handleKeyframe(
           &status_stereo,
           &tracker_status_summary_.infoMatStereoTranslation_);
     } else {
-      status_stereo.first = TrackingStatus::INVALID;
+      status_stereo.first =
+          depth_active ? TrackingStatus::INVALID : TrackingStatus::DISABLED;
       status_stereo.second = gtsam::Pose3();
+      tracker_status_summary_.infoMatStereoTranslation_.setZero();
     }
 
     TrackingStatusPose status_pnp;
@@ -360,7 +397,7 @@ void RgbdVisionImuFrontend::handleKeyframe(
   camera_->undistortKeypoints(frame.left_frame_.keypoints_,
                               &frame.left_keypoints_rectified_);
 
-  rgbd_frame.fillStereoFrame(*camera_, frame);
+  rgbd_frame.fillStereoFrame(*camera_, frame, depth_active);
 
   // log debugging info
   logTrackingImages(frame, rgbd_frame);
@@ -396,6 +433,30 @@ void RgbdVisionImuFrontend::fillSmartStereoMeasurements(
     measurements->push_back(
         std::make_pair(landmark_ids[i], gtsam::StereoPoint2(uL, uR, v)));
   }
+}
+
+SparseDepthMeasurements RgbdVisionImuFrontend::selectSparseDepth(
+    const StereoFrame& frame, size_t max_meas) const {
+  SparseDepthMeasurements out;
+  if (max_meas == 0) {
+    return out;
+  }
+  const auto& depths = frame.keypoints_depth_;
+  const auto& left_keypoints = frame.left_keypoints_rectified_;
+  const auto& lmks = frame.left_frame_.landmarks_;
+  CHECK_EQ(depths.size(), left_keypoints.size());
+  CHECK_EQ(depths.size(), lmks.size());
+
+  out.reserve(std::min(max_meas, depths.size()));
+  for (size_t i = 0; i < depths.size() && out.size() < max_meas; ++i) {
+    if (lmks[i] == -1) continue;
+    const double d = depths[i];
+    if (d <= 0.0 || !std::isfinite(d)) continue;
+    if (left_keypoints[i].first != KeypointStatus::VALID) continue;
+    const auto& kp = left_keypoints[i].second;
+    out.push_back({lmks[i], d, kp.x, kp.y});
+  }
+  return out;
 }
 
 cv::Mat drawDepthImage(const StereoFrame& stereo_frame,
@@ -512,6 +573,30 @@ void RgbdVisionImuFrontend::sendMonoTrackingToLogger(
                           "/monoTrackingUnrectifiedImg/",
                           FLAGS_visualize_frontend_images,
                           FLAGS_save_frontend_images);
+}
+
+bool RgbdVisionImuFrontend::useDepthThisFrame(const FrameId& id) const {
+  if (!use_depth_stride_) {
+    return true;
+  }
+  return (id % depth_stride_) == 0u;
+}
+
+bool RgbdVisionImuFrontend::gyroAllowsDepth(
+    const ImuAccGyrS& imu_accgyrs) const {
+  if (!use_depth_gyro_gate_) {
+    return true;
+  }
+  if (imu_accgyrs.cols() == 0) {
+    return false;
+  }
+  // Compute max gyro magnitude over the window.
+  double max_gyr = 0.0;
+  for (int i = 0; i < imu_accgyrs.cols(); ++i) {
+    const Eigen::Vector3d gyr = imu_accgyrs.block<3, 1>(3, i);
+    max_gyr = std::max(max_gyr, gyr.norm());
+  }
+  return max_gyr < depth_gyro_threshold_radps_;
 }
 
 gtsam::Pose3 RgbdVisionImuFrontend::getRelativePoseBodyMono() const {

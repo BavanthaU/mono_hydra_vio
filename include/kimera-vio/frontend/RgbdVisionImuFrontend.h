@@ -55,6 +55,8 @@ class RgbdVisionImuFrontend : public VisionImuFrontend {
   // Convert frame to backend measurements
   void fillSmartStereoMeasurements(const StereoFrame& frame,
                                    StereoMeasurements* measurements) const;
+  SparseDepthMeasurements selectSparseDepth(
+      const StereoFrame& frame, size_t max_meas) const;
 
  private:
   /**
@@ -83,6 +85,7 @@ class RgbdVisionImuFrontend : public VisionImuFrontend {
   StatusStereoMeasurementsPtr processFrame(
       const RgbdFrame& cur_frame,
       const gtsam::Rot3& keyframe_R_ref_frame,
+      const ImuAccGyrS& imu_accgyrs,
       cv::Mat* feature_tracks = nullptr);
 
   // handle feature detection and outlier rejection for new keyframe
@@ -97,6 +100,9 @@ class RgbdVisionImuFrontend : public VisionImuFrontend {
   void logTrackingImages(const StereoFrame& frame, const RgbdFrame& rgbd_frame);
 
   void sendMonoTrackingToLogger(const StereoFrame& frame) const;
+
+  bool useDepthThisFrame(const FrameId& id) const;
+  bool gyroAllowsDepth(const ImuAccGyrS& imu_accgyrs) const;
 
  private:
   Timestamp last_frame_timestamp_;
@@ -115,6 +121,11 @@ class RgbdVisionImuFrontend : public VisionImuFrontend {
 
   //! the camera for the frontend
   RgbdCamera::ConstPtr camera_;
+
+  const bool use_depth_stride_;
+  const size_t depth_stride_;
+  const bool use_depth_gyro_gate_;
+  const double depth_gyro_threshold_radps_;
 };
 
 }  // namespace VIO

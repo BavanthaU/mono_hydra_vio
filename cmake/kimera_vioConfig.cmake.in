@@ -14,3 +14,15 @@ list(REMOVE_AT CMAKE_MODULE_PATH -1)
 if(NOT TARGET kimera_vio)
   include("${KimeraVIO_CMAKE_DIR}/kimera_vioTargets.cmake")
 endif()
+
+if(NOT TARGET mono_hydra_vio)
+  add_library(mono_hydra_vio INTERFACE IMPORTED)
+  set_target_properties(mono_hydra_vio PROPERTIES
+    INTERFACE_LINK_LIBRARIES kimera_vio)
+endif()
+
+if(NOT TARGET mono_hydra_vio::mono_hydra_vio)
+  add_library(mono_hydra_vio::mono_hydra_vio INTERFACE IMPORTED)
+  set_target_properties(mono_hydra_vio::mono_hydra_vio PROPERTIES
+    INTERFACE_LINK_LIBRARIES kimera_vio)
+endif()

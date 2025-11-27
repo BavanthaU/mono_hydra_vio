@@ -98,6 +98,7 @@ RgbdImuPipeline::RgbdImuPipeline(const VioParams& params,
               converted_output->status_stereo_measurements_,
               converted_output->pim_,
               converted_output->imu_acc_gyrs_,
+              converted_output->sparse_depth_meas_,
               converted_output->body_lkf_OdomPose_body_kf_,
               converted_output->body_kf_world_OdomVel_body_kf_));
         } else {

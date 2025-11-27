@@ -51,7 +51,8 @@ class RgbdFrame : public PipelinePayload {
    * @param[out] stereo_frame Stereo frame to fill with features
    */
   void fillStereoFrame(const RgbdCamera& camera,
-                       StereoFrame& stereo_frame) const;
+                       StereoFrame& stereo_frame,
+                       bool use_depth = true) const;
 
  public:
   const FrameId id_;

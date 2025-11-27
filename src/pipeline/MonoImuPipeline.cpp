@@ -20,6 +20,7 @@
 #include <string>
 
 #include "kimera-vio/backend/VioBackendFactory.h"
+#include "kimera-vio/backend/DepthMeasurements.h"
 #include "kimera-vio/frontend/MonoVisionImuFrontend-definitions.h"
 #include "kimera-vio/frontend/VisionImuFrontendFactory.h"
 #include "kimera-vio/loopclosure/LcdFactory.h"
@@ -98,6 +99,7 @@ MonoImuPipeline::MonoImuPipeline(const VioParams& params,
               converted_output->status_mono_measurements_,
               converted_output->pim_,
               converted_output->imu_acc_gyrs_,
+              SparseDepthMeasurements(),
               converted_output->body_lkf_OdomPose_body_kf_,
               converted_output->body_kf_world_OdomVel_body_kf_));
         } else {

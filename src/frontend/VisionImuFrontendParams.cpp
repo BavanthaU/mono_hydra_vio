@@ -65,7 +65,11 @@ void FrontendParams::print() const {
                         "Use 3D3D Tracking",
                         use_3d3d_tracking_,
                         "Use PnP Tracking",
-                        use_pnp_tracking_);
+                        use_pnp_tracking_,
+                        "use_depth_stride_: ",
+                        use_depth_stride_,
+                        "depth_stride_: ",
+                        depth_stride_);
   LOG(INFO) << out.str();
 
   feature_detector_params_.print();
@@ -104,6 +108,22 @@ bool FrontendParams::parseYAML(const std::string& filepath) {
   yaml_parser.getYamlParam("use_3d3d_tracking", &use_3d3d_tracking_);
   yaml_parser.getYamlParam("use_pnp_tracking", &use_pnp_tracking_);
   yaml_parser.getYamlParam("max_disparity_since_lkf", &max_disparity_since_lkf_);
+
+  if (yaml_parser.hasParam("use_depth_stride")) {
+    yaml_parser.getYamlParam("use_depth_stride", &use_depth_stride_);
+  }
+  if (yaml_parser.hasParam("depth_stride")) {
+    int depth_stride = 0;
+    yaml_parser.getYamlParam("depth_stride", &depth_stride);
+    depth_stride_ = depth_stride > 0 ? static_cast<size_t>(depth_stride) : 1u;
+  }
+  if (yaml_parser.hasParam("use_depth_gyro_gate")) {
+    yaml_parser.getYamlParam("use_depth_gyro_gate", &use_depth_gyro_gate_);
+  }
+  if (yaml_parser.hasParam("depth_gyro_threshold_radps")) {
+    yaml_parser.getYamlParam("depth_gyro_threshold_radps",
+                             &depth_gyro_threshold_radps_);
+  }
   
   // TODO(Toni): use yaml at some point
   visualize_feature_tracks_ = FLAGS_visualize_feature_tracks;
@@ -125,7 +145,11 @@ bool FrontendParams::equals(const FrontendParams& tp2, double tol) const {
          (fabs(min_intra_keyframe_time_ns_ - tp2.min_intra_keyframe_time_ns_) <= tol) &&
          (min_number_features_ == tp2.min_number_features_) &&
          (fabs(max_disparity_since_lkf_ - tp2.max_disparity_since_lkf_) <= tol) &&
-         (use_stereo_tracking_ == tp2.use_stereo_tracking_);
+         (use_stereo_tracking_ == tp2.use_stereo_tracking_) &&
+         (use_depth_stride_ == tp2.use_depth_stride_) &&
+         (depth_stride_ == tp2.depth_stride_) &&
+         (use_depth_gyro_gate_ == tp2.use_depth_gyro_gate_) &&
+         (fabs(depth_gyro_threshold_radps_ - tp2.depth_gyro_threshold_radps_) <= tol);
 }
 
 }  // namespace VIO
